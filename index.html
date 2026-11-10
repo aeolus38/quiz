@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>브리스 독서퀴즈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 도서관 대출카드 + 책등 색띠: 레벨마다 책등 색이 다르고, 카드 안에서 문제와 정답이 한 줄로 나란히 */
+:root{
+  --bg:#eef1f4; --paper:#ffffff; --ink:#1c2433; --muted:#5d6778; --line:#d6dbe3;
+  --accent:#1f5f8b; --accent-soft:#e3eef6; --answer:#0f6b4f; --answer-bg:#e6f4ee;
+  --warn:#9a5b00; --warn-bg:#fdf1dc; --todo:#6b6f78; --todo-bg:#eceef1;
+  --lv0:#e7a43a; --lv1:#d9653b; --lv2:#c23f62; --lv3:#7d4fb3; --lv4:#2f6fbf; --lv5:#178a83; --lv6:#4d7d2a;
+  --f-display:"Gowun Batang", "Nanum Myeongjo", serif;
+  --f-body:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141922; --paper:#1d2430; --ink:#e7ebf2; --muted:#9aa4b5; --line:#2f3847;
+  --accent:#7db7e0; --accent-soft:#223447; --answer:#6fd3a8; --answer-bg:#173a2d;
+  --warn:#f0b65a; --warn-bg:#3a2d17; --todo:#a3a8b2; --todo-bg:#2a303b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141922; --paper:#1d2430; --ink:#e7ebf2; --muted:#9aa4b5; --line:#2f3847;
+  --accent:#7db7e0; --accent-soft:#223447; --answer:#6fd3a8; --answer-bg:#173a2d;
+  --warn:#f0b65a; --warn-bg:#3a2d17; --todo:#a3a8b2; --todo-bg:#2a303b; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-bottom:max(32px,env(safe-area-inset-bottom,0px))}
+.wrap{max-width:1080px;margin:0 auto}
+header{padding-block:28px 12px;display:grid;gap:14px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font:700 clamp(26px,5vw,34px)/1.2 var(--f-display);margin:0;letter-spacing:-.01em;cursor:pointer}
+.brand small{color:var(--muted);font-size:13px}
+.search{position:relative}
+.search input{width:100%;font:500 17px var(--f-body);padding:14px 16px 14px 46px;border-radius:12px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);outline:none}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.suggest{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.12);max-height:340px;overflow:auto;padding:6px}
+.suggest button{display:flex;width:100%;gap:10px;align-items:center;text-align:left;border:0;background:none;color:var(--ink);padding:9px 10px;border-radius:8px;font:inherit;cursor:pointer}
+.suggest button:hover,.suggest button.on{background:var(--accent-soft)}
+.suggest .t{flex:1;min-width:0}
+.suggest .t span{display:block;color:var(--muted);font-size:12.5px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:5px 13px;font:500 13.5px var(--f-body);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+select.chip{appearance:none;padding-right:13px}
+.count{color:var(--muted);font-size:13px;margin-left:auto}
+.lvtag{display:inline-block;font:600 11.5px var(--f-body);color:#fff;border-radius:4px;padding:1px 7px;letter-spacing:.04em;white-space:nowrap}
+.st{font:600 11.5px var(--f-body);border-radius:4px;padding:1px 7px;white-space:nowrap}
+.st.ok{color:var(--answer);background:var(--answer-bg)}
+.st.check{color:var(--warn);background:var(--warn-bg)}
+.st.todo{color:var(--todo);background:var(--todo-bg)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 목록 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px;padding-block:14px}
+.card{border:0;background:none;padding:0;text-align:left;color:inherit;font:inherit;cursor:pointer;display:grid;gap:8px;min-width:0}
+.card .t{font-weight:600;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .m{display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.cover{aspect-ratio:2/3;max-width:100%;border-radius:4px 8px 8px 4px;overflow:hidden;background:var(--paper);box-shadow:0 1px 2px rgba(0,0,0,.08),0 6px 16px rgba(0,0,0,.08);position:relative}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover .ph{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:14px 12px 12px 20px;color:#fff;font:700 15px/1.35 var(--f-display);word-break:keep-all}
+.cover .ph::before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;background:rgba(0,0,0,.18)}
+.cover .ph small{font:500 11px var(--f-body);opacity:.85}
+.card:hover .cover{transform:translateY(-2px);transition:transform .15s}
+
+/* 상세 */
+.detail{padding-block:12px 24px;display:grid;gap:22px}
+.back{justify-self:start}
+.book{display:grid;grid-template-columns:200px 1fr;gap:28px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:24px}
+.book .cover{width:200px}
+.meta{min-width:0;display:grid;gap:12px;align-content:start}
+.meta h2{font:700 clamp(22px,4vw,30px)/1.3 var(--f-display);margin:0;text-wrap:balance;word-break:keep-all}
+.meta .orig{color:var(--muted);font-size:13px}
+.meta dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0;font-size:14.5px}
+.meta dt{color:var(--muted)}
+.meta dd{margin:0;min-width:0}
+.meta p{margin:0;max-width:62ch}
+.notice{font-size:13.5px;border-radius:8px;padding:9px 12px}
+.notice.check{background:var(--warn-bg);color:var(--warn)}
+.notice.todo{background:var(--todo-bg);color:var(--todo)}
+.quizhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.quizhead h3{font:700 20px var(--f-display);margin:0}
+.quiz{display:grid;gap:10px;margin:0;padding:0;list-style:none;counter-reset:q}
+.q{counter-increment:q;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,.9fr);gap:14px;align-items:start;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.q .d{font:700 13px var(--f-body);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff}
+.q .d.하{background:#3d9a6a}.q .d.중{background:#d08a1c}.q .d.상{background:#c4453c}
+.q .qq{font-weight:500}
+.q .qq::before{content:counter(q) ". ";color:var(--muted)}
+.q .aa{background:var(--answer-bg);color:var(--answer);border-radius:8px;padding:6px 10px;font-weight:600;font-size:14.5px}
+.q .aa b{font:600 11px var(--f-body);display:block;opacity:.75;letter-spacing:.05em}
+.hide-ans .q .aa{color:transparent;cursor:pointer;user-select:none;background:repeating-linear-gradient(-45deg,var(--answer-bg) 0 8px,var(--line) 8px 10px)}
+.hide-ans .q .aa b{color:var(--answer)}
+.hide-ans .q .aa.shown{color:var(--answer);background:var(--answer-bg)}
+.empty{color:var(--muted);padding:40px 0;text-align:center}
+@media (max-width:640px){
+  .book{grid-template-columns:110px 1fr;gap:16px;padding:16px}
+  .book .cover{width:110px}
+  .q{grid-template-columns:auto minmax(0,1fr)}
+  .q .aa{grid-column:2}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:14px 10px}
+  .count{margin-left:0;width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1 id="home">브리스 독서퀴즈</h1><small id="total"></small></div>
+    <div class="search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="책 제목·지은이 (초성 검색 OK)" autocomplete="off" aria-label="책 검색">
+      <div class="suggest" id="suggest" hidden></div>
+    </div>
+    <div class="filters" id="levels"></div>
+    <div class="filters">
+      <select class="chip" id="field" aria-label="분야"></select>
+      <button class="chip" id="onlyok" aria-pressed="false">확인된 퀴즈만</button>
+      <span class="count" id="count"></span>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+const LEVELS=["기초","LV1","LV2","LV3","LV4","LV5","LV6"];
+const LVCOLOR={"기초":"var(--lv0)","LV1":"var(--lv1)","LV2":"var(--lv2)","LV3":"var(--lv3)","LV4":"var(--lv4)","LV5":"var(--lv5)","LV6":"var(--lv6)"};
+const STATUS={ok:"내용 확인",check:"검토 중",todo:"퀴즈 준비 중"};
+let BOOKS=[], state={level:null,field:"",onlyok:false};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// 검색 정규화 + 초성
+const CHO="ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+const norm=s=>String(s||"").toLowerCase().replace(/[^0-9a-z가-힣ㄱ-ㅎ]/g,"");
+const cho=s=>[...norm(s)].map(c=>{const k=c.charCodeAt(0)-44032;return k>=0&&k<11172?CHO[Math.floor(k/588)]:c}).join("");
+function match(b,q){
+  const n=norm(q); if(!n) return 0;
+  const hay=[b.title,b.listTitle].map(norm), au=norm(b.author);
+  if(hay.some(h=>h===n)) return 100;
+  if(hay.some(h=>h.startsWith(n))) return 80;
+  if(hay.some(h=>h.includes(n))) return 60;
+  if(/^[ㄱ-ㅎ]+$/.test(n) && [b.title,b.listTitle].some(t=>cho(t).includes(n))) return 50;
+  if(au.includes(n)) return 30;
+  return 0;
+}
+
+// 표지: 데이터에 있으면 그대로, 없으면 서버(카카오)로 조회
+const coverCache={};
+function lookup(b){
+  if(coverCache[b.id]) return coverCache[b.id];
+  const u=`api/book?title=${encodeURIComponent(b.title)}&publisher=${encodeURIComponent(b.publisher)}&author=${encodeURIComponent(b.author)}`;
+  return coverCache[b.id]=fetch(u).then(r=>r.ok?r.json():{}).catch(()=>({}));
+}
+function coverHTML(b){
+  return `<div class="cover" data-id="${b.id}"><div class="ph" style="background:${LVCOLOR[b.level]}"><span>${esc(b.title)}</span><small>${esc(b.level)}</small></div></div>`;
+}
+function fillCover(el,b){
+  const put=src=>{ if(!src) return; const img=new Image(); img.alt=b.title+" 표지"; img.onload=()=>{el.innerHTML="";el.appendChild(img)}; img.src=src; };
+  if(b.cover){ const img=new Image(); img.onload=()=>{el.innerHTML="";el.appendChild(img)}; img.onerror=()=>lookup(b).then(r=>put(r.thumbnail)); img.alt=b.title+" 표지"; img.src=b.cover; }
+  else lookup(b).then(r=>put(r.thumbnail));
+}
+const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ io.unobserve(e.target); const b=BOOKS[+e.target.dataset.id-1]; fillCover(e.target,b);} }),{rootMargin:"200px"});
+
+function filtered(){
+  return BOOKS.filter(b=>(!state.level||b.level===state.level)&&(!state.field||b.field===state.field)&&(!state.onlyok||b.status==="ok"));
+}
+function renderList(){
+  const list=filtered();
+  $("#count").textContent=`${list.length}권`;
+  $("#main").innerHTML=list.length?`<div class="grid">${list.map(b=>`
+    <button class="card" data-id="${b.id}">
+      ${coverHTML(b)}
+      <span class="t">${esc(b.title)}</span>
+      <span class="m"><span class="lvtag" style="background:${LVCOLOR[b.level]}">${b.level}</span>${b.status!=="ok"?`<span class="st ${b.status}">${STATUS[b.status]}</span>`:""}</span>
+    </button>`).join("")}</div>`:`<p class="empty">조건에 맞는 책이 없어요.</p>`;
+  document.querySelectorAll(".grid .cover").forEach(el=>io.observe(el));
+}
+function renderBook(id){
+  const b=BOOKS[id-1]; if(!b) return renderList();
+  window.scrollTo(0,0);
+  const hide=(()=>{try{return localStorage.getItem("hideAns")==="1"}catch(e){return false}})();
+  const orig=norm(b.listTitle)!==norm(b.title)?`<div class="orig">목록 표기: ${esc(b.listTitle)}</div>`:"";
+  $("#main").innerHTML=`<section class="detail">
+    <button class="chip back" id="back">← 목록으로</button>
+    <article class="book">
+      ${coverHTML(b)}
+      <div class="meta">
+        <h2>${esc(b.title)}</h2>${orig}
+        <dl>
+          <dt>지은이</dt><dd id="m-author">${esc(b.author)||"—"}</dd>
+          <dt>출판사</dt><dd id="m-pub">${esc(b.publisher)||"—"}</dd>
+          <dt>레벨</dt><dd><span class="lvtag" style="background:${LVCOLOR[b.level]}">${b.level}</span></dd>
+          <dt>분야</dt><dd>${esc(b.field)}</dd>
+        </dl>
+        ${b.summary?`<p>${esc(b.summary)}</p>`:""}
+        ${b.status==="check"?`<div class="notice check">이 책은 줄거리를 출처로 다 확인하지 못했어요. 문제와 정답이 책 내용과 다를 수 있으니 확인하고 쓰세요.</div>`:""}
+      </div>
+    </article>
+    ${b.quiz.length?`
+    <div class="quizhead"><h3>퀴즈 5문제</h3><span class="st ${b.status}">${STATUS[b.status]}</span>
+      <button class="chip" id="hideans" aria-pressed="${hide}">정답 가리기</button></div>
+    <ol class="quiz ${hide?"hide-ans":""}" id="quiz">${b.quiz.map(q=>`
+      <li class="q"><span class="d ${q.d}">${q.d}</span><div class="qq">${esc(q.q)}</div><div class="aa"><b>정답</b>${esc(q.a)}</div></li>`).join("")}
+    </ol>`:`<div class="notice todo">이 책은 아직 내용을 찾는 중이라 퀴즈를 준비하고 있어요.</div>`}
+  </section>`;
+  const cv=$(".book .cover"); fillCover(cv,b);
+  if(!b.author||!b.publisher) lookup(b).then(r=>{ if(!r.found) return;
+    if(!b.author&&r.authors?.length) $("#m-author").textContent=r.authors.join(", ")+(r.translators?.length?` (옮김 ${r.translators.join(", ")})`:"");
+    if(!b.publisher&&r.publisher) $("#m-pub").textContent=r.publisher; });
+  $("#back").onclick=()=>{location.hash=""};
+  const hb=$("#hideans"); if(hb) hb.onclick=()=>{ const on=hb.getAttribute("aria-pressed")!=="true"; hb.setAttribute("aria-pressed",on); $("#quiz").classList.toggle("hide-ans",on); document.querySelectorAll(".aa.shown").forEach(a=>a.classList.remove("shown")); try{localStorage.setItem("hideAns",on?"1":"0")}catch(e){} };
+  document.querySelectorAll(".aa").forEach(a=>a.onclick=()=>a.classList.toggle("shown"));
+}
+function route(){ $("#suggest").hidden=true; const m=location.hash.match(/^#book-(\d+)$/); m?renderBook(+m[1]):renderList(); }
+
+// 검색 자동완성
+let sel=-1;
+function suggest(){
+  const q=$("#q").value, box=$("#suggest");
+  const hits=BOOKS.map(b=>[match(b,q),b]).filter(x=>x[0]).sort((a,b)=>b[0]-a[0]||a[1].id-b[1].id).slice(0,12);
+  sel=-1;
+  if(!q.trim()){box.hidden=true;return}
+  box.innerHTML=hits.length?hits.map(([,b])=>`<button data-id="${b.id}"><span class="lvtag" style="background:${LVCOLOR[b.level]}">${b.level}</span><span class="t">${esc(b.title)}<span>${esc(b.author||b.field)}</span></span></button>`).join(""):`<div class="empty" style="padding:14px">'${esc(q)}' 책을 목록에서 못 찾았어요.</div>`;
+  box.hidden=false;
+}
+function go(id){ $("#suggest").hidden=true; $("#q").blur(); location.hash="book-"+id; }
+
+fetch("books.json").then(r=>r.json()).then(data=>{
+  BOOKS=data;
+  const ok=data.filter(b=>b.status==="ok").length;
+  $("#total").textContent=`권장도서 ${data.length}권 · 퀴즈 ${data.filter(b=>b.quiz.length).length}권`;
+  $("#levels").innerHTML=`<button class="chip" data-lv="" aria-pressed="true">전체</button>`+LEVELS.map(l=>`<button class="chip" data-lv="${l}" aria-pressed="false"><i style="background:${LVCOLOR[l]}"></i>${l} <span style="opacity:.6">${data.filter(b=>b.level===l).length}</span></button>`).join("");
+  const fields=[...new Set(data.map(b=>b.field))].sort((a,b)=>a.localeCompare(b,"ko"));
+  $("#field").innerHTML=`<option value="">분야 전체</option>`+fields.map(f=>`<option>${f}</option>`).join("");
+  route();
+});
+window.addEventListener("hashchange",route);
+$("#home").onclick=()=>{location.hash="";$("#q").value=""};
+$("#levels").onclick=e=>{const c=e.target.closest("[data-lv]");if(!c)return;state.level=c.dataset.lv||null;document.querySelectorAll("#levels .chip").forEach(x=>x.setAttribute("aria-pressed",x===c));location.hash?location.hash="":renderList()};
+$("#field").onchange=e=>{state.field=e.target.value;location.hash?location.hash="":renderList()};
+$("#onlyok").onclick=e=>{state.onlyok=!state.onlyok;e.currentTarget.setAttribute("aria-pressed",state.onlyok);location.hash?location.hash="":renderList()};
+$("#q").addEventListener("input",suggest);
+$("#q").addEventListener("focus",suggest);
+$("#q").addEventListener("keydown",e=>{
+  const items=[...document.querySelectorAll("#suggest button")];
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();sel=(sel+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;items.forEach((b,i)=>b.classList.toggle("on",i===sel));}
+  else if(e.key==="Enter"){const t=items[sel]||items[0]; if(t) go(+t.dataset.id);}
+  else if(e.key==="Escape") $("#suggest").hidden=true;
+});
+$("#suggest").onclick=e=>{const b=e.target.closest("button[data-id]"); if(b) go(+b.dataset.id)};
+document.addEventListener("click",e=>{ if(!e.target.closest(".search")) $("#suggest").hidden=true; });
+$("#main").addEventListener("click",e=>{const c=e.target.closest(".card"); if(c) go(+c.dataset.id)});
+</script>
+</body>
+</html>
