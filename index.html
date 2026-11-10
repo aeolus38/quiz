@@ -88,6 +88,11 @@ select.chip{appearance:none;padding-right:13px}
 .quizhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .quizhead h3{font:700 20px var(--f-display);margin:0}
 .quiz{display:grid;gap:10px;margin:0;padding:0;list-style:none;counter-reset:q}
+.dtabs{display:flex;gap:8px;flex-wrap:wrap}
+#quiz{display:grid;gap:22px}
+.dgroup h4{display:flex;align-items:center;gap:10px;font:700 16px var(--f-display);margin:0 0 10px}
+.dgroup h4 .d{font:700 12px var(--f-body);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff}
+.dgroup h4 .d.하{background:#3d9a6a}.dgroup h4 .d.중{background:#d08a1c}.dgroup h4 .d.상{background:#c4453c}
 .q{counter-increment:q;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,.9fr);gap:14px;align-items:start;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .q .d{font:700 13px var(--f-body);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff}
 .q .d.하{background:#3d9a6a}.q .d.중{background:#d08a1c}.q .d.상{background:#c4453c}
@@ -210,11 +215,13 @@ function renderBook(id){
       </div>
     </article>
     ${b.quiz.length?`
-    <div class="quizhead"><h3>퀴즈 5문제</h3><span class="st ${b.status}">${STATUS[b.status]}</span>
+    <div class="quizhead"><h3>퀴즈 ${b.quiz.length}문제</h3><span class="st ${b.status}">${STATUS[b.status]}</span>
       <button class="chip" id="hideans" aria-pressed="${hide}">정답 가리기</button></div>
-    <ol class="quiz ${hide?"hide-ans":""}" id="quiz">${b.quiz.map(q=>`
-      <li class="q"><span class="d ${q.d}">${q.d}</span><div class="qq">${esc(q.q)}</div><div class="aa"><b>정답</b>${esc(q.a)}</div></li>`).join("")}
-    </ol>`:`<div class="notice todo">이 책은 아직 내용을 찾는 중이라 퀴즈를 준비하고 있어요.</div>`}
+    <div class="dtabs" id="dtabs">${["전체","하","중","상"].map((d,i)=>{const n=d==="전체"?b.quiz.length:b.quiz.filter(q=>q.d===d).length;return n?`<button class="chip" data-d="${d}" aria-pressed="${i===0}">${d==="전체"?"전체":d+" 난이도"} <span style="opacity:.6">${n}</span></button>`:""}).join("")}</div>
+    <div id="quiz" class="${hide?"hide-ans":""}">${["하","중","상"].map(d=>{const qs=b.quiz.filter(q=>q.d===d); return qs.length?`
+      <section class="dgroup" data-d="${d}"><h4><span class="d ${d}">${d}</span>${{"하":"쉬운 문제","중":"보통 문제","상":"어려운 문제"}[d]} · ${qs.length}문제</h4>
+      <ol class="quiz">${qs.map(q=>`<li class="q"><span class="d ${q.d}">${q.d}</span><div class="qq">${esc(q.q)}</div><div class="aa"><b>정답</b>${esc(q.a)}</div></li>`).join("")}</ol></section>`:""}).join("")}
+    </div>`:`<div class="notice todo">이 책은 아직 내용을 찾는 중이라 퀴즈를 준비하고 있어요.</div>`}
   </section>`;
   const cv=$(".book .cover"); fillCover(cv,b);
   if(!b.author||!b.publisher) lookup(b).then(r=>{ if(!r.found) return;
@@ -223,6 +230,7 @@ function renderBook(id){
   $("#back").onclick=()=>{location.hash=""};
   const hb=$("#hideans"); if(hb) hb.onclick=()=>{ const on=hb.getAttribute("aria-pressed")!=="true"; hb.setAttribute("aria-pressed",on); $("#quiz").classList.toggle("hide-ans",on); document.querySelectorAll(".aa.shown").forEach(a=>a.classList.remove("shown")); try{localStorage.setItem("hideAns",on?"1":"0")}catch(e){} };
   document.querySelectorAll(".aa").forEach(a=>a.onclick=()=>a.classList.toggle("shown"));
+  const dt=$("#dtabs"); if(dt) dt.onclick=e=>{const c=e.target.closest("[data-d]"); if(!c) return; dt.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===c)); document.querySelectorAll(".dgroup").forEach(g=>g.hidden=!(c.dataset.d==="전체"||g.dataset.d===c.dataset.d));};
 }
 function route(){ $("#suggest").hidden=true; const m=location.hash.match(/^#book-(\d+)$/); m?renderBook(+m[1]):renderList(); }
 
@@ -244,7 +252,7 @@ Promise.all([
 ]).then(([data,covers])=>{
   BOOKS=data; COVERS=covers||{};
   const ok=data.filter(b=>b.status==="ok").length;
-  $("#total").textContent=`권장도서 ${data.length}권 · 퀴즈 ${data.filter(b=>b.quiz.length).length}권`;
+  $("#total").textContent=`권장도서 ${data.length}권 · 퀴즈 ${data.filter(b=>b.quiz.length).length}권 · ${data.reduce((n,b)=>n+b.quiz.length,0).toLocaleString()}문제`;
   $("#levels").innerHTML=`<button class="chip" data-lv="" aria-pressed="true">전체</button>`+LEVELS.map(l=>`<button class="chip" data-lv="${l}" aria-pressed="false"><i style="background:${LVCOLOR[l]}"></i>${l} <span style="opacity:.6">${data.filter(b=>b.level===l).length}</span></button>`).join("");
   const fields=[...new Set(data.map(b=>b.field))].sort((a,b)=>a.localeCompare(b,"ko"));
   $("#field").innerHTML=`<option value="">분야 전체</option>`+fields.map(f=>`<option>${f}</option>`).join("");
