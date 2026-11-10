@@ -152,10 +152,15 @@ function match(b,q){
   return 0;
 }
 
-// 표지: 데이터에 있으면 그대로, 없으면 서버(카카오)로 조회
+// 표지: 데이터에 있으면 그대로 → 미리 찾아둔 covers.json → (서버가 있으면) 카카오 조회
+// covers.json 덕분에 GitHub Pages 같은 정적 호스팅에서도 서버 없이 동작
 const coverCache={};
+let COVERS={};
 function lookup(b){
   if(coverCache[b.id]) return coverCache[b.id];
+  const hit=COVERS[`${b.title}|${b.publisher}`];
+  if(hit) return coverCache[b.id]=Promise.resolve(hit);
+  if(location.hostname.endsWith("github.io")) return coverCache[b.id]=Promise.resolve({});
   const u=`api/book?title=${encodeURIComponent(b.title)}&publisher=${encodeURIComponent(b.publisher)}&author=${encodeURIComponent(b.author)}`;
   return coverCache[b.id]=fetch(u).then(r=>r.ok?r.json():{}).catch(()=>({}));
 }
@@ -233,8 +238,11 @@ function suggest(){
 }
 function go(id){ $("#suggest").hidden=true; $("#q").blur(); location.hash="book-"+id; }
 
-fetch("books.json").then(r=>r.json()).then(data=>{
-  BOOKS=data;
+Promise.all([
+  fetch("books.json").then(r=>r.json()),
+  fetch("covers.json").then(r=>r.ok?r.json():{}).catch(()=>({}))
+]).then(([data,covers])=>{
+  BOOKS=data; COVERS=covers||{};
   const ok=data.filter(b=>b.status==="ok").length;
   $("#total").textContent=`권장도서 ${data.length}권 · 퀴즈 ${data.filter(b=>b.quiz.length).length}권`;
   $("#levels").innerHTML=`<button class="chip" data-lv="" aria-pressed="true">전체</button>`+LEVELS.map(l=>`<button class="chip" data-lv="${l}" aria-pressed="false"><i style="background:${LVCOLOR[l]}"></i>${l} <span style="opacity:.6">${data.filter(b=>b.level===l).length}</span></button>`).join("");
